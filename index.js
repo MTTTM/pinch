@@ -2,6 +2,8 @@
 var pinch = function (obj) {
   var eleImg = obj.eleImg;
   var autoTransformOrigin = obj.autoTransformOrigin ? obj.autoTransformOrigin : false;
+  var maxScale = obj.maxScale && parseInt(obj.maxScale) && obj.maxScale > 1 ? obj.maxScale : 3;
+
   var store = {
     scale: 1,
     left: null,
@@ -170,8 +172,8 @@ var pinch = function (obj) {
       // 应用在元素上的缩放比例
       var newScale = store.originScale * zoom;
       // 最大缩放比例限制
-      if (newScale > 3) {
-        newScale = 3;
+      if (newScale > maxScale) {
+        newScale = maxScale;
       }
       else if (newScale < 1) {
         newScale = 1;
@@ -212,5 +214,6 @@ var pinch = function (obj) {
 var el = document.querySelector('#image');
 pinch({
   eleImg: el,
-  autoTransformOrigin: true
+  autoTransformOrigin: true,
+  maxScale: 3
 });
