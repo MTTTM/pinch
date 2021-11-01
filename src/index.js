@@ -1,17 +1,24 @@
 var pinch = function (obj) {
+  //配置信息====================
   var eleImg = obj.eleImg;
   var autoTransformOrigin = obj.autoTransformOrigin ? obj.autoTransformOrigin : false;
   var maxScale = obj.maxScale && parseInt(obj.maxScale) && obj.maxScale > 1 ? obj.maxScale : 3;
+  var doubleTapAutoTransformOrigin = obj.doubleTapAutoTransformOrigin ? obj.doubleTapAutoTransformOrigin : false;
+  var doubleTapScale = obj.doubleTapScale && parseInt(obj.doubleTapScale) && obj.doubleTapScale > 1 ? obj.doubleTapScale : 1.5;
   var container = obj.container;
   if (!(container && container instanceof HTMLElement)) {
     throw Error("container为必选项,且为htmlElement")
   }
+  //临时变量=====================
   var store = {
     scale: 1,
     left: null,
     top: null
   };
-
+  var preTime = 0;
+  var doubleClick = false;
+  var touchStartEvent = {};
+  //功能函数======================
   // 获取坐标之间的举例
   // var getDistance = function (start, stop) {
   //   return Math.hypot(stop.x - start.x, stop.y - start.y);
@@ -102,12 +109,57 @@ var pinch = function (obj) {
     }
     return pos;
   }
+  /**
+   * 对元素设置缩放
+   * @param {} newScale 
+   */
+  var setScale = function (newScale) {
+    eleImg.style.transform = 'scale(' + newScale + ')';
+    eleImg.setAttribute("data-scale", newScale)
+  }
+  /**
+   * 设置缩放中心点
+   * @param {*} x 
+   * @param {*} y 
+   */
+  var setScaleOrigin = function (x, y) {
+    // 两个手指头 相对body可视区域坐标的中心点
+    eleImg.style.transformOrigin = x + " " + y;
+
+  }
+  /**
+   * 双击缩放
+   */
+  var dobleClickScale = function () {
+    eleImg.style.transformOrigin = "center center";
+    store.scale = store.scale >= doubleTapScale ? 1 : doubleTapScale;
+
+    if (doubleTapAutoTransformOrigin) {
+      //两个手指头 相对body可视区域坐标的中心点
+      var midPointArray = getMidpoint(getTouches(touchStartEvent, container));
+      setScaleOrigin(midPointArray[0] + "px", midPointArray[1] + "px");
+    }
+    else {
+      setScaleOrigin("center", "center");
+    }
+    setScale(store.scale);
+
+  }
+
   // 缩放事件的处理
   eleImg.addEventListener('touchstart', function (event) {
+    touchStartEvent = event;
     var touches = event.touches;
     var events = touches[0];
     var events2 = touches[1];
-
+    var timeDis = new Date().getTime() - preTime;
+    if (timeDis > 0 && timeDis <= 200) {
+      doubleClick = true;
+    }
+    else {
+      doubleClick = false;
+    }
+    preTime = new Date().getTime();
     event.preventDefault();
 
     // 第一个触摸点的坐标
@@ -178,18 +230,22 @@ var pinch = function (obj) {
       // 记住使用的缩放值
       store.scale = newScale;
       if (autoTransformOrigin) {
-        // 两个手指头 相对body可视区域坐标的中心点
+        //两个手指头 相对body可视区域坐标的中心点
         var midPointArray = getMidpoint(getTouches(event, container));
-        eleImg.style.transformOrigin = midPointArray[0] + "px " + midPointArray[1] + "px";
-        document.querySelector("#text") && (document.querySelector("#text").innerHTML = eleImg.style.transformOrigin);
+        setScaleOrigin(midPointArray[0] + "px", midPointArray[1] + "px");
       }
-      eleImg.style.transform = 'scale(' + newScale + ')';
+      else {
+        setScaleOrigin("center", "center");
+      }
+
+      setScale(newScale);
     }
   });
 
   document.addEventListener('touchend', function () {
     store.moveable = false;
-
+    //双击，缩放
+    doubleClick && dobleClickScale();
     delete store.clientX2;
     delete store.clientY2;
   });

@@ -5,5 +5,6 @@ pinch({
   eleImg: el,
   container: document.querySelector(".container"),
   autoTransformOrigin: true,
-  maxScale: 3
+  maxScale: 3,
+  doubleTapAutoTransformOrigin: true
 });
