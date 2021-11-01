@@ -1,9 +1,11 @@
-
 var pinch = function (obj) {
   var eleImg = obj.eleImg;
   var autoTransformOrigin = obj.autoTransformOrigin ? obj.autoTransformOrigin : false;
   var maxScale = obj.maxScale && parseInt(obj.maxScale) && obj.maxScale > 1 ? obj.maxScale : 3;
-
+  var container = obj.container;
+  if (!(container && container instanceof HTMLElement)) {
+    throw Error("container为必选项,且为htmlElement")
+  }
   var store = {
     scale: 1,
     left: null,
@@ -20,13 +22,39 @@ var pinch = function (obj) {
       y = p2.y - p1.y;
     return Math.sqrt((x * x) + (y * y));
   };
+
+
+  var sum = function (a, b) {
+    return a + b;
+  };
   /*
-   * 获取中点 
+     * 获取中点 
+     */
+  var getMidpoint = function (vectors) {
+    return [
+      vectors.map(function (v) { return v.x; }).reduce(sum) / vectors.length,
+      vectors.map(function (v) { return v.y; }).reduce(sum) / vectors.length
+    ];
+  };
+  /**
+   * 获取触碰点 相对容器的位置集合
+   * @param {*} event 
+   * @param {*} container 
+   * @returns 
    */
-  var getMidpoint = function (p1, p2) {
-    var x = (p1.clientX + p2.clientX) / 2,
-      y = (p1.clientY + p2.clientY) / 2;
-    return [x, y];
+  var getTouches = function (event, container) {
+    var rect = container.getBoundingClientRect();
+    var scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+    var scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft;
+    var posTop = rect.top + scrollTop;
+    var posLeft = rect.left + scrollLeft;
+
+    return Array.prototype.slice.call(event.touches).map(function (touch) {
+      return {
+        x: touch.pageX - posLeft,
+        y: touch.pageY - posTop,
+      };
+    });
   }
   /**
    * 获取节点距离可视区边界的位置,和可视大小（缩放后的大小）
@@ -37,51 +65,20 @@ var pinch = function (obj) {
     return el.getBoundingClientRect();
   }
   /**
-   * 获取节点设置的大小
-   * @param {*} el 
-   * @param {*} attr 
-   * @returns 
-   */
-  var getElementDefaultSize = function (el, attr) {
-    if (["width", "height"].indexOf(attr) == -1) {
-      throw new Error("getElementDefaultSize 第二个参数必须为width或height")
-    }
-    console.log("window.getComputedStyle(el)[attr]", window.getComputedStyle(el)[attr])
-    return window.getComputedStyle(el)[attr];
-  }
-  /**
   * 可视大小（缩放后）
   * @param {*} el 
   * @param {*} attr 
   * @returns 
   */
-  var getElementClientSize = function (el, attr) {
+  var getElementViewSize = function (el, attr) {
     if (["width", "height"].indexOf(attr) == -1) {
       throw new Error("getElementClientSize 第二个参数必须为width或height")
     }
     console.log("getElementClientPos(el)[attr]", getElementClientPos(el)[attr])
     return getElementClientPos(el)[attr];
   }
-  /**
-   * 获取图片缩放大小
-   * @param {*} el 
-   * @returns 
-   */
-  var getScaleSize = function (el) {
-    var t = (getElementClientSize(el, "width") * 1000) / (getElementDefaultSize(el, "width") * 1000);
-    return parseFloat(t.toFixed(5));
-  }
-  /**
-   * 得到图片的缩放中心点
-   * @param {*} el 
-   * @param {*} centerClientPosArray 
-   * @returns 
-   */
-  var getElementScaleCenterPos = function (el, centerClientPosArray) {
-    var elPosLeft = getElementClientPos(el).left;
-    var elPosTop = getElementClientPos(el).top;
-    return [centerClientPosArray[0] - elPosLeft, centerClientPosArray[1] - elPosTop]
-  }
+
+
   /**
    * 注意不要对太多父节点的节点做这个计算，否则很费性能
    * @param {*} el 
@@ -182,16 +179,11 @@ var pinch = function (obj) {
       store.scale = newScale;
       if (autoTransformOrigin) {
         // 两个手指头 相对body可视区域坐标的中心点
-        var midPointArray = getMidpoint(events, events2);
-        //屏幕两指中心点转【图片中心点】
-        var transformOrigin = [Math.abs(midPointArray[0] - store.left), Math.abs(midPointArray[1] - store.top)];
-        eleImg.style.transformOrigin = transformOrigin[0] + "px " + transformOrigin[1] + "px";
-        //document.querySelector("#text") && (document.querySelector("#text").innerHTML = eleImg.style.transformOrigin);
+        var midPointArray = getMidpoint(getTouches(event, container));
+        eleImg.style.transformOrigin = midPointArray[0] + "px " + midPointArray[1] + "px";
+        document.querySelector("#text") && (document.querySelector("#text").innerHTML = eleImg.style.transformOrigin);
       }
-
       eleImg.style.transform = 'scale(' + newScale + ')';
-
-
     }
   });
 
@@ -210,10 +202,3 @@ var pinch = function (obj) {
 }
 
 
-//使用=======================================
-var el = document.querySelector('#image');
-pinch({
-  eleImg: el,
-  autoTransformOrigin: true,
-  maxScale: 3
-});
