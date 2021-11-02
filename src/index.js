@@ -148,17 +148,18 @@ var pinch = function (obj) {
 
   // 缩放事件的处理
   eleImg.addEventListener('touchstart', function (event) {
-    touchStartEvent = event;
+
     var touches = event.touches;
     var events = touches[0];
     var events2 = touches[1];
     var timeDis = new Date().getTime() - preTime;
-    if (timeDis > 0 && timeDis <= 200) {
+    if (!events2 && timeDis > 0 && timeDis <= 200) {
       doubleClick = true;
     }
     else {
       doubleClick = false;
     }
+    touchStartEvent = event;
     preTime = new Date().getTime();
     event.preventDefault();
 
@@ -237,7 +238,6 @@ var pinch = function (obj) {
       else {
         setScaleOrigin("center", "center");
       }
-
       setScale(newScale);
     }
   });
