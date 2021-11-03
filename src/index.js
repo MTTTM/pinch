@@ -12,12 +12,13 @@ var pinch = function (obj) {
   //临时变量=====================
   var store = {
     scale: 1,
-    left: null,
-    top: null
+    translatex: 0,
+    translatey: 0
   };
   var preTime = 0;
   var doubleClick = false;
   var touchStartEvent = {};
+
   //功能函数======================
   // 获取坐标之间的举例
   // var getDistance = function (start, stop) {
@@ -109,12 +110,17 @@ var pinch = function (obj) {
     }
     return pos;
   }
+  var setrTansform = function () {
+    console.log("store.scale", store)
+    eleImg.style.transform = 'scale(' + store.scale + ') translateX(' + store.translatex + 'px) translateY(' + store.translatey + 'px)';
+  }
   /**
    * 对元素设置缩放
    * @param {} newScale 
    */
   var setScale = function (newScale) {
-    eleImg.style.transform = 'scale(' + newScale + ')';
+    // eleImg.style.transform = 'scale(' + newScale + ')';
+    setrTansform();
     eleImg.setAttribute("data-scale", newScale)
   }
   /**
@@ -142,10 +148,19 @@ var pinch = function (obj) {
     else {
       setScaleOrigin("center", "center");
     }
+    store.scale === 1 && setScaleOrigin("center", "center");
+    store.translatex = 0;
+    store.translatey = 0;
     setScale(store.scale);
 
   }
+  var setTranslate = function (x, y) {
+    eleImg.setAttribute("data-translatex", store.translatex);
+    eleImg.setAttribute("data-translatey", store.translatey);
+    setrTansform();
+  }
 
+  setTranslate();
   // 缩放事件的处理
   eleImg.addEventListener('touchstart', function (event) {
 
@@ -168,11 +183,11 @@ var pinch = function (obj) {
     store.clientY = events.clientY;
 
     //计算dom的距离body可视区域的左边和右边的距离
-    var offsetInfoObj = getOffsetPos(eleImg);
-    eleImg.setAttribute("data-left", offsetInfoObj.left)
-    eleImg.setAttribute("data-top", offsetInfoObj.top)
-    store.left = offsetInfoObj.left;
-    store.top = offsetInfoObj.top;
+    //var offsetInfoObj = getOffsetPos(eleImg);
+    // eleImg.setAttribute("data-left", offsetInfoObj.left)
+    // eleImg.setAttribute("data-top", offsetInfoObj.top)
+    // store.left = offsetInfoObj.left;
+    // store.top = offsetInfoObj.top;
 
     store.moveable = true;
 
@@ -202,6 +217,7 @@ var pinch = function (obj) {
       if (!store.clientY2) {
         store.clientY2 = events2.clientY;
       }
+
 
 
       // 双指缩放比例计算
@@ -239,6 +255,20 @@ var pinch = function (obj) {
         setScaleOrigin("center", "center");
       }
       setScale(newScale);
+    }
+    else {
+      console.log("touchStartEvent", touchStartEvent)
+      var touchStartTouchs = {
+        x: touchStartEvent.touches[0].clientX,
+        y: touchStartEvent.touches[0].clientY
+      }
+
+      var disX = touchStartTouchs.x - events.clientX;
+      var disY = touchStartTouchs.y - events.clientY;
+      store.translatex = - disX;
+      store.translatey = - disY;
+      console.log("位移", store)
+      setTranslate();
     }
   });
 
