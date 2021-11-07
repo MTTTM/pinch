@@ -6,5 +6,6 @@ pinch({
   container: document.querySelector(".container"),
   autoTransformOrigin: true,
   maxScale: 3,
-  doubleTapAutoTransformOrigin: true
+  doubleTapAutoTransformOrigin: true,
+  allowDrag: true
 });

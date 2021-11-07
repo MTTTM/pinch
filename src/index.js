@@ -5,6 +5,7 @@ var pinch = function (obj) {
   var maxScale = obj.maxScale && parseInt(obj.maxScale) && obj.maxScale > 1 ? obj.maxScale : 3;
   var doubleTapAutoTransformOrigin = obj.doubleTapAutoTransformOrigin ? obj.doubleTapAutoTransformOrigin : false;
   var doubleTapScale = obj.doubleTapScale && parseInt(obj.doubleTapScale) && obj.doubleTapScale > 1 ? obj.doubleTapScale : 1.5;
+  var allowDrag = obj.allowDrag ? obj.allowDrag : false;
   var container = obj.container;
   if (!(container && container instanceof HTMLElement)) {
     throw Error("container为必选项,且为htmlElement")
@@ -13,7 +14,9 @@ var pinch = function (obj) {
   var store = {
     scale: 1,
     translatex: 0,
-    translatey: 0
+    translatey: 0,
+    preTranslatex: 0,
+    preTranslatey: 0,
   };
   var preTime = 0;
   var doubleClick = false;
@@ -111,8 +114,8 @@ var pinch = function (obj) {
     return pos;
   }
   var setrTansform = function () {
-    console.log("store.scale", store)
-    eleImg.style.transform = 'scale(' + store.scale + ') translateX(' + store.translatex + 'px) translateY(' + store.translatey + 'px)';
+    // console.log("store.scale", store)
+    eleImg.style.transform = 'translateX(' + store.translatex + 'px) translateY(' + store.translatey + 'px) scale(' + store.scale + ') ';
   }
   /**
    * 对元素设置缩放
@@ -157,10 +160,23 @@ var pinch = function (obj) {
   var setTranslate = function (x, y) {
     eleImg.setAttribute("data-translatex", store.translatex);
     eleImg.setAttribute("data-translatey", store.translatey);
+    setScaleOrigin(0, 0)
     setrTansform();
   }
 
   setTranslate();
+  //拖拽功能
+  var Drag = {
+    maxLimit: function () {
+
+    },
+    updatePreTranslate: function () {
+      var preTranslatey = eleImg.getAttribute("data-translatey");
+      var preTranslatex = eleImg.getAttribute("data-translatex");
+      store.preTranslatey = preTranslatey ? preTranslatey : 0;
+      store.preTranslatex = preTranslatex ? preTranslatex : 0;
+    }
+  }
   // 缩放事件的处理
   eleImg.addEventListener('touchstart', function (event) {
 
@@ -182,12 +198,9 @@ var pinch = function (obj) {
     store.clientX = events.clientX;
     store.clientY = events.clientY;
 
-    //计算dom的距离body可视区域的左边和右边的距离
-    //var offsetInfoObj = getOffsetPos(eleImg);
-    // eleImg.setAttribute("data-left", offsetInfoObj.left)
-    // eleImg.setAttribute("data-top", offsetInfoObj.top)
-    // store.left = offsetInfoObj.left;
-    // store.top = offsetInfoObj.top;
+
+    //拖拽参数，更新
+    allowDrag && Drag.updatePreTranslate();
 
     store.moveable = true;
 
@@ -265,9 +278,29 @@ var pinch = function (obj) {
 
       var disX = touchStartTouchs.x - events.clientX;
       var disY = touchStartTouchs.y - events.clientY;
-      store.translatex = - disX;
-      store.translatey = - disY;
-      console.log("位移", store)
+
+      store.translatex = store.preTranslatex - disX;
+      store.translatey = store.preTranslatey - disY;
+
+      var getClientRects = getElementClientPos(eleImg);
+      if (disX < 0 && store.translatex >= 0) {
+        store.translatex = 0;
+      }
+      else
+        if (disX > 0 && store.translatex < -(getClientRects.width - window.innerWidth)) {
+          store.translatex = -(getClientRects.width - window.innerWidth);
+        }
+
+      // console.log("store.translatey", store.translatex, disX, "getClientRects.width", getClientRects.width)
+      // if (store.translatey >= 0) {
+      //   store.translatey = 0;
+      // }
+      // else if (disY > 0 && store.translatey <= window.innerHeight) {
+      //   //位移在中心点上面，所有要除2
+      //   store.translatey = getClientRects.height / 2 - window.innerHeight;
+      // }
+      // 
+      // console.log(" store.translatey ", store.translatey, getClientRects)
       setTranslate();
     }
   });
