@@ -23,6 +23,18 @@ var pinch = function (obj) {
   var touchStartEvent = {};
 
   //功能函数======================
+  /**
+   * 初始化store
+   */
+  var initStore = function () {
+    store = {
+      scale: 1,
+      translatex: 0,
+      translatey: 0,
+      preTranslatex: 0,
+      preTranslatey: 0,
+    };
+  }
   // 获取坐标之间的举例
   // var getDistance = function (start, stop) {
   //   return Math.hypot(stop.x - start.x, stop.y - start.y);
@@ -48,22 +60,33 @@ var pinch = function (obj) {
     ];
   };
   /**
+   * 获取容器先对整个body的位置
+   * @param {*} touch 
+   * @returns 
+   */
+  var getContainerRelativePos = function () {
+    var rect = container.getBoundingClientRect();
+    var scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+    var scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft;
+    var posTop = rect.top + scrollTop;
+    var posLeft = rect.left + scrollLeft;
+    return {
+      posLeft: posLeft,
+      posTop: posTop
+    }
+  }
+  /**
    * 获取触碰点 相对容器的位置集合
    * @param {*} event 
    * @param {*} container 
    * @returns 
    */
   var getTouches = function (event, container) {
-    var rect = container.getBoundingClientRect();
-    var scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
-    var scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft;
-    var posTop = rect.top + scrollTop;
-    var posLeft = rect.left + scrollLeft;
-
     return Array.prototype.slice.call(event.touches).map(function (touch) {
+      var touchesRelativePos = getContainerRelativePos(touch);
       return {
-        x: touch.pageX - posLeft,
-        y: touch.pageY - posTop,
+        x: touch.pageX - touchesRelativePos.posLeft,
+        y: touch.pageY - touchesRelativePos.posTop,
       };
     });
   }
@@ -90,93 +113,86 @@ var pinch = function (obj) {
   }
 
 
-  /**
-   * 注意不要对太多父节点的节点做这个计算，否则很费性能
-   * @param {*} el 
-   * @returns 
-   */
-  var getOffsetPos = function (el) {
-    var pos = {
-      left: el.offsetLeft,
-      top: el.offsetTop
-    };
-    var currElement = el.parentElement;
-    var index = 0;
-    while (currElement !== null) {
-      pos.left += currElement.offsetLeft;
-      pos.top += currElement.offsetTop;
-      currElement = currElement.parentElement;
-      index++;
-    }
-    if (index > 1000) {
-      console.warn("getOffsetPos 函数不建议对父级数超过1000的节点使用")
-    }
-    return pos;
-  }
+
   var setrTansform = function () {
-    // console.log("store.scale", store)
-    eleImg.style.transform = 'translateX(' + store.translatex + 'px) translateY(' + store.translatey + 'px) scale(' + store.scale + ') ';
-  }
-  /**
-   * 对元素设置缩放
-   * @param {} newScale 
-   */
-  var setScale = function (newScale) {
-    // eleImg.style.transform = 'scale(' + newScale + ')';
-    setrTansform();
-    eleImg.setAttribute("data-scale", newScale)
-  }
-  /**
-   * 设置缩放中心点
-   * @param {*} x 
-   * @param {*} y 
-   */
-  var setScaleOrigin = function (x, y) {
-    // 两个手指头 相对body可视区域坐标的中心点
-    eleImg.style.transformOrigin = x + " " + y;
+    eleImg.style.transformOrigin = "0 0";
+    eleImg.style.transform = 'translate(' + store.translatex + 'px,' + store.translatey + 'px) scale(' + store.scale + ') ';
+    eleImg.setAttribute("data-translatex", store.translatex);
+    eleImg.setAttribute("data-translatey", store.translatey);
+    eleImg.setAttribute("data-scale", store.scale);
 
   }
+
   /**
    * 双击缩放
    */
   var dobleClickScale = function () {
-    eleImg.style.transformOrigin = "center center";
-    store.scale = store.scale >= doubleTapScale ? 1 : doubleTapScale;
+    if (store.scale === 1) {
+      //双击位置坐标相对容器的的坐标
+      var dbclickPosRelativeContainer = getMidpoint(getTouches(touchStartEvent, container));
+      store.preTranslatex = store.translatex = -dbclickPosRelativeContainer[0] * 0.5;//0.5是 1.5和1的差值
+      store.preTranslatey = store.translatey = - dbclickPosRelativeContainer[1] * 0.5;
 
-    if (doubleTapAutoTransformOrigin) {
-      //两个手指头 相对body可视区域坐标的中心点
-      var midPointArray = getMidpoint(getTouches(touchStartEvent, container));
-      setScaleOrigin(midPointArray[0] + "px", midPointArray[1] + "px");
     }
     else {
-      setScaleOrigin("center", "center");
+      store.translatex = 0;
+      store.translatey = 0;
+      store.preTranslatex = 0;
+      store.preTranslatey = 0;
     }
-    store.scale === 1 && setScaleOrigin("center", "center");
-    store.translatex = 0;
-    store.translatey = 0;
-    setScale(store.scale);
-
-  }
-  var setTranslate = function (x, y) {
-    eleImg.setAttribute("data-translatex", store.translatex);
-    eleImg.setAttribute("data-translatey", store.translatey);
-    setScaleOrigin(0, 0)
+    store.scale = store.scale >= doubleTapScale ? 1 : doubleTapScale;
     setrTansform();
-  }
 
-  setTranslate();
+  }
   //拖拽功能
   var Drag = {
     maxLimit: function () {
 
     },
-    updatePreTranslate: function () {
+    initPreTranslate: function () {
       var preTranslatey = eleImg.getAttribute("data-translatey");
       var preTranslatex = eleImg.getAttribute("data-translatex");
       store.preTranslatey = preTranslatey ? preTranslatey : 0;
       store.preTranslatex = preTranslatex ? preTranslatex : 0;
+    },
+    updateTranslate: function (events) {
+      var getClientRects = getElementClientPos(eleImg);//获取图片的视图宽
+      var containerRect = container.getBoundingClientRect();//获取容器的视图宽高
+      var leftMaxLimit = -Math.ceil(containerRect.left * store.scale);
+      var topMaxLimit = -containerRect.top * store.scale;
+      var touchStartTouchs = {
+        x: touchStartEvent.touches[0].clientX,
+        y: touchStartEvent.touches[0].clientY
+      }
+
+      var disX = touchStartTouchs.x - events.clientX;
+      var disY = touchStartTouchs.y - events.clientY;
+
+      store.translatex = store.preTranslatex - disX;
+      store.translatey = store.preTranslatey - disY;
+
+
+      if (disX < 0 && store.translatex >= leftMaxLimit) {
+        store.translatex = leftMaxLimit;
+      }
+      // else if (disX > 0 && store.translatex < -(getClientRects.width - window.innerWidth)) {
+      //   store.translatex = -(getClientRects.width - window.innerWidth);
+      // }
+
+      // // console.log("store.translatey", store.translatex, disX, "getClientRects.width", getClientRects.width)
+      // if (getClientRects.height >= window.innerHeight) {
+      //   if (disY < 0 && store.translatey >= topMaxLimit) {
+      //     store.translatey = topMaxLimit;
+      //   }
+      //   else if (disY > 0 && store.translatey < -(getClientRects.height - window.innerHeight)) {
+      //     store.translatey = -(getClientRects.height - window.innerHeight);;
+      //   }
+      // }
+      setrTansform();
     }
   }
+
+  setrTansform();
   // 缩放事件的处理
   eleImg.addEventListener('touchstart', function (event) {
 
@@ -200,7 +216,7 @@ var pinch = function (obj) {
 
 
     //拖拽参数，更新
-    allowDrag && Drag.updatePreTranslate();
+    allowDrag && Drag.initPreTranslate();
 
     store.moveable = true;
 
@@ -256,52 +272,22 @@ var pinch = function (obj) {
       }
       else if (newScale < 1) {
         newScale = 1;
+        initStore();
       }
+      var dbclickPosRelativeContainer = getMidpoint(getTouches(event, container));
+      var disScale = newScale - store.scale;
+      store.translatex = store.preTranslatex - dbclickPosRelativeContainer[0] * disScale;
+      store.translatey = store.preTranslatey - dbclickPosRelativeContainer[1] * disScale;
+      document.querySelector("#text").innerHTML = `store.translatex ${store.translatex} store.translatey ${store.translatey} dbclickPosRelativeContainer[0]${dbclickPosRelativeContainer[0]} ==disScale${disScale}`;
       // 记住使用的缩放值
       store.scale = newScale;
-      if (autoTransformOrigin) {
-        //两个手指头 相对body可视区域坐标的中心点
-        var midPointArray = getMidpoint(getTouches(event, container));
-        setScaleOrigin(midPointArray[0] + "px", midPointArray[1] + "px");
-      }
-      else {
-        setScaleOrigin("center", "center");
-      }
-      setScale(newScale);
+      store.preTranslatex = store.translatex;
+      store.preTranslatey = store.translatey;
+      setrTansform();
     }
     else {
-      console.log("touchStartEvent", touchStartEvent)
-      var touchStartTouchs = {
-        x: touchStartEvent.touches[0].clientX,
-        y: touchStartEvent.touches[0].clientY
-      }
-
-      var disX = touchStartTouchs.x - events.clientX;
-      var disY = touchStartTouchs.y - events.clientY;
-
-      store.translatex = store.preTranslatex - disX;
-      store.translatey = store.preTranslatey - disY;
-
-      var getClientRects = getElementClientPos(eleImg);
-      if (disX < 0 && store.translatex >= 0) {
-        store.translatex = 0;
-      }
-      else
-        if (disX > 0 && store.translatex < -(getClientRects.width - window.innerWidth)) {
-          store.translatex = -(getClientRects.width - window.innerWidth);
-        }
-
-      // console.log("store.translatey", store.translatex, disX, "getClientRects.width", getClientRects.width)
-      // if (store.translatey >= 0) {
-      //   store.translatey = 0;
-      // }
-      // else if (disY > 0 && store.translatey <= window.innerHeight) {
-      //   //位移在中心点上面，所有要除2
-      //   store.translatey = getClientRects.height / 2 - window.innerHeight;
-      // }
-      // 
-      // console.log(" store.translatey ", store.translatey, getClientRects)
-      setTranslate();
+      //拖拽参数，更新
+      allowDrag && store.scale > 1 && Drag.updateTranslate(events);
     }
   });
 
